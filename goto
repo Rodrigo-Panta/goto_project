@@ -1,0 +1,49 @@
+#!/bin/bash
+# Fetches the last few directories the user has visited through the command cd
+# Changes to a chosen directory
+# It's possible that not all visited directories are listed, as well as there might be a non visited directory listed.
+
+
+cat ~/.bash_history | grep cd | awk '$1~/cd/ {$1="";print $0}' > tempH.txt
+sed -i 's/^ *//' tempH.txt
+sed -i 's/ /___/g' tempH.txt
+historyArray=($(cat tempH.txt))
+rm tempH.txt
+declare -a dirArray
+currentDir=''
+for entry in ${historyArray[@]}; do
+	entry=$(echo $entry | sed 's/___/ /g')
+	entry=$(echo $entry | sed "s/'//g")
+	#Removes paths that return to the previously visited dir
+	[[ $entry =~ ^-$ ]] && continue
+	#Tries to form a path from the current dir and the one being formed: /dir1/dir2 (+) ../dir3 => /dir1/dir3
+	while [[ $entry =~ ^\.\..*$ ]]; do
+		entry=$(echo $entry | sed 's/^\.\.//')
+		currentDir=$(echo $currentDir | sed 's/\/.*$//')
+	done
+	IFS="+"
+	userDir=~
+	#Tries to form a dir from the following patterns
+	for pattern in "$entry" "$currentDir$entry" "$currentDir/$entry" "$userDir$entry" "$userDir/$entry"  ; do
+		if [ -d "$pattern" ]; then
+			dirArray[${#dirArray[@]}]="$pattern"
+			currentDir="$pattern"
+			break	
+		fi
+	done
+done 
+sep="------------------------------------------"
+dirArray[${#dirArray[@]}]=$(echo "Sair")
+
+echo Escolha um diretório para navegar:
+echo $sep
+select DIR in ${dirArray[@]}; do
+	if [ $DIR == "Sair" ]; then 
+		echo 'Até mais :) '; exit 0
+	fi
+	echo "Redirecionando para: $DIR"
+	cd $DIR
+	$SHELL
+	exit 0
+done 
+
